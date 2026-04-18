@@ -19,7 +19,7 @@ export interface SyncResult {
 }
 
 export function buildRsyncArgs(options: SyncOptions): string[] {
-  const args: string[] = ['-avz', '--delete']
+  const args: string[] = ['-avz', '--delete', '--stats']
 
   for (const pattern of options.excludePatterns) {
     args.push(`--exclude=${pattern}`)
@@ -31,7 +31,7 @@ export function buildRsyncArgs(options: SyncOptions): string[] {
 
   const port = options.port ?? 22
   const sshArgs = options.privateKeyPath
-    ? `ssh -p ${port} -i ${options.privateKeyPath} -o StrictHostKeyChecking=no`
+    ? `ssh -p ${port} -i "${options.privateKeyPath}" -o StrictHostKeyChecking=no`
     : `ssh -p ${port} -o StrictHostKeyChecking=no`
 
   args.push('-e', sshArgs)

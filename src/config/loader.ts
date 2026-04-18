@@ -17,7 +17,13 @@ export async function loadGlobalConfig(): Promise<GlobalConfig> {
     throw new Error('全局配置不存在。请先运行 lab-cli init --global 初始化配置')
   }
 
-  const raw = parseYaml(readFileSync(globalConfigPath, 'utf-8'))
+  const content = readFileSync(globalConfigPath, 'utf-8')
+  let raw: unknown
+  try {
+    raw = parseYaml(content)
+  } catch {
+    throw new Error(`全局配置文件格式无效，请检查 YAML 语法: ${globalConfigPath}`)
+  }
   const result = globalConfigSchema.safeParse(raw)
 
   if (!result.success) {

@@ -38,7 +38,7 @@ describe('rsync 参数构建', () => {
     const sshArg = args[sshArgIdx + 1]
     expect(sshArg).toContain('ssh')
     expect(sshArg).toContain('-p 2222')
-    expect(sshArg).toContain('-i ~/.ssh/id_rsa')
+    expect(sshArg).toContain('-i "~/.ssh/id_rsa"')
   })
 
   it('dryRun 模式添加 --dry-run 参数', () => {
