@@ -8,6 +8,7 @@ const mockExec = vi.fn()
 const mockDisconnect = vi.fn()
 const mockSyncToRemote = vi.fn()
 const mockBuildSbatchCommand = vi.fn()
+const mockPrompt = vi.fn()
 
 vi.mock('../../config/loader.js', () => ({
   getConfig: mockGetConfig,
@@ -29,6 +30,12 @@ vi.mock('../../transfer/rsync.js', () => ({
 
 vi.mock('../../slurm/commands.js', () => ({
   buildSbatchCommand: mockBuildSbatchCommand,
+}))
+
+vi.mock('inquirer', () => ({
+  default: {
+    prompt: mockPrompt,
+  },
 }))
 
 vi.mock('chalk', () => ({
@@ -110,9 +117,111 @@ describe('submit 命令', () => {
       '--name',
       '--output',
       '--error',
+      '--preset',
+      '--guide',
       '--sync',
       '--dry-run',
     ]))
+  })
+
+  it('未使用 --preset 或 --guide 时保持原有提交参数行为', async () => {
+    const program = await setupCommand()
+
+    await program.parseAsync(['node', 'lab-cli', 'submit', 'train.sh', '--dry-run'])
+
+    expect(mockBuildSbatchCommand).toHaveBeenCalledWith('train.sh', {
+      partition: 'gpu',
+      gpus: 2,
+      nodes: 1,
+      time: undefined,
+      jobName: 'demo-job',
+      output: undefined,
+      error: undefined,
+    })
+    expect(mockPrompt).not.toHaveBeenCalled()
+  })
+
+  it('--preset single-gpu 会把预设资源传给 buildSbatchCommand', async () => {
+    const program = await setupCommand()
+
+    await program.parseAsync(['node', 'lab-cli', 'submit', 'train.sh', '--preset', 'single-gpu', '--dry-run'])
+
+    expect(mockBuildSbatchCommand).toHaveBeenCalledWith('train.sh', {
+      partition: 'gpu',
+      gpus: 1,
+      nodes: 1,
+      time: '24:00:00',
+      jobName: 'demo-job',
+      output: undefined,
+      error: undefined,
+    })
+  })
+
+  it('显式 CLI 参数优先级高于 --preset', async () => {
+    const program = await setupCommand()
+
+    await program.parseAsync(['node', 'lab-cli', 'submit', 'train.sh', '--preset', 'single-gpu', '--gpus', '8', '--dry-run'])
+
+    expect(mockBuildSbatchCommand).toHaveBeenCalledWith('train.sh', {
+      partition: 'gpu',
+      gpus: 8,
+      nodes: 1,
+      time: '24:00:00',
+      jobName: 'demo-job',
+      output: undefined,
+      error: undefined,
+    })
+  })
+
+  it('--guide 会通过交互式选择预设', async () => {
+    mockPrompt.mockResolvedValue({ selectedPreset: 'single-gpu' })
+    const program = await setupCommand()
+
+    await program.parseAsync(['node', 'lab-cli', 'submit', 'train.sh', '--guide', '--dry-run'])
+
+    expect(mockPrompt).toHaveBeenCalledWith([
+      {
+        type: 'list',
+        name: 'selectedPreset',
+        message: '选择资源预设:',
+        choices: expect.arrayContaining([
+          { name: '[debug] — 调试用（1 GPU，1小时）', value: 'debug' },
+          { name: '[single-gpu] — 单 GPU 训练（1 GPU，24小时）', value: 'single-gpu' },
+          { name: '[multi-gpu] — 多 GPU 训练（4 GPU，48小时）', value: 'multi-gpu' },
+          { name: '[full-node] — 整节点训练（8 GPU，72小时）', value: 'full-node' },
+        ]),
+      },
+    ])
+    expect(mockBuildSbatchCommand).toHaveBeenCalledWith('train.sh', {
+      partition: 'gpu',
+      gpus: 1,
+      nodes: 1,
+      time: '24:00:00',
+      jobName: 'demo-job',
+      output: undefined,
+      error: undefined,
+    })
+  })
+
+  it('--preset 不存在时输出可用预设并退出', async () => {
+    mockGetConfig.mockRejectedValue(new Error('全局配置不存在。请先运行 lab-cli init --global 初始化配置'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: string | number | null) => {
+      throw new ExitCalled(typeof code === 'number' ? code : 0)
+    }) as typeof process.exit)
+    const program = await setupCommand()
+
+    await expect(
+      program.parseAsync(['node', 'lab-cli', 'submit', 'train.sh', '--preset', 'nonexistent'])
+    ).rejects.toMatchObject({ code: 1 })
+
+    expect(errorSpy).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('可用预设: debug, single-gpu, multi-gpu, full-node')
+    )
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(mockGetConfig).not.toHaveBeenCalled()
+    expect(mockBuildSbatchCommand).not.toHaveBeenCalled()
   })
 
   it('dry-run 模式仅打印将要执行的命令', async () => {
