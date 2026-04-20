@@ -1,0 +1,48 @@
+# lab-cli 项目配置示例文件
+# 将此文件复制到项目根目录并重命名为 .labrc 或 .labrc.yaml
+# 或运行 `lab-cli init` 进行交互式初始化
+
+# 项目名称（必填）
+# 用于标识和日志输出
+name: my-training-project
+
+# 远程路径（必填）
+# 项目在服务器上的工作目录
+remotePath: /home/yourname/projects/my-project
+
+# 同步排除规则（可选）
+# 指定哪些文件或目录在同步时应该被忽略
+# 支持 glob 模式
+syncExclude:
+  - node_modules
+  - .git
+  - __pycache__
+  - "*.pyc"
+  - .env
+  - dist
+  - coverage
+  - .sisyphus
+
+# Slurm 分区（可选）
+# 如果不指定，将使用全局配置中的 defaultPartition
+# 或在提交任务时用 --partition 参数指定
+slurmPartition: gpu
+
+# GPU 数量（可选）
+# 仅当使用 GPU 分区时有效
+# 如果不指定，提交任务时需要用 --gpus 参数
+slurmGpus: 4
+
+# 节点数量（可选）
+# 默认为 1
+# 如果不指定，提交任务时需要用 --nodes 参数
+slurmNodes: 1
+
+# Conda 环境名称（可选）
+# 如果指定，setup 命令会创建此环境
+# 如果不指定，需要手动创建或在提交任务时指定
+condaEnvName: myenv
+
+# Python 版本（可选，默认 3.10）
+# 仅当创建 Conda 环境时使用
+condaPythonVersion: "3.10"
