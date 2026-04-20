@@ -36,6 +36,7 @@ vi.mock('chalk', () => ({
     gray: (value: string) => value,
     bold: (value: string) => value,
     blue: (value: string) => value,
+    dim: (value: string) => value,
   },
 }))
 
@@ -141,6 +142,53 @@ describe('status 命令', () => {
 
     await program.parseAsync(['node', 'lab-cli', 'status'])
 
-    expect(logSpy).toHaveBeenCalledWith('当前没有运行中的任务')
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('当前没有活跃任务'))
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('submit'))
+  })
+
+  it('摘要头显示查询时间、用户和任务统计', async () => {
+    const jobsWithStates: SlurmJobInfo[] = [
+      {
+        jobId: '12345',
+        name: 'train_bert',
+        state: 'RUNNING',
+        partition: 'gpu',
+        nodes: 2,
+        gpus: 4,
+        timeUsed: '01:30:00',
+        timeLimit: '24:00:00',
+      },
+      {
+        jobId: '12346',
+        name: 'eval_job',
+        state: 'PENDING',
+        partition: 'gpu',
+        nodes: 1,
+        gpus: 2,
+        timeUsed: '00:00:00',
+        timeLimit: '02:00:00',
+      },
+    ]
+    mockParseSqueueJson.mockReturnValue(jobsWithStates)
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const program = await setupCommand()
+
+    await program.parseAsync(['node', 'lab-cli', 'status'])
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('查询时间:'))
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('用户: alice'))
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('运行中: 1'))
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('等待中: 1'))
+  })
+
+  it('页脚显示任务总数和查询时间', async () => {
+    mockParseSqueueJson.mockReturnValue(sampleJobs)
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const program = await setupCommand()
+
+    await program.parseAsync(['node', 'lab-cli', 'status'])
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('共 2 个任务'))
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('查询于'))
   })
 })

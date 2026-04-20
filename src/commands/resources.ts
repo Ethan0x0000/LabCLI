@@ -63,19 +63,34 @@ export function registerResourcesCommand(program: Command): void {
         }
 
         if (nodes.length === 0) {
-          console.log(chalk.yellow('没有找到匹配的节点'))
+          console.log(chalk.yellow('没有找到匹配的节点 — 用 lab-cli resources 查看所有节点，或检查 --node/--partition 参数'))
           return
         }
+
+        // Calculate totals for overview header
+        let totalGpus = 0
+        let totalIdleGpus = 0
+        for (const node of nodes) {
+          totalGpus += node.gpuTotal
+          totalIdleGpus += node.gpuTotal - node.gpuUsed
+        }
+
+        // Print cluster overview header
+        const queryTime = new Date().toLocaleString('zh-CN')
+        console.log(chalk.dim('─'.repeat(50)))
+        console.log(`查询时间: ${queryTime}`)
+        console.log(`节点: ${nodes.length} 个 | 空闲 GPU: ${totalIdleGpus} | 总 GPU: ${totalGpus}`)
+        if (options.partition) {
+          console.log(`分区: ${options.partition}`)
+        }
+        console.log(chalk.dim('─'.repeat(50)))
 
         const header = `${'节点'.padEnd(12)} ${'状态'.padEnd(12)} ${'CPU(用/总)'.padEnd(12)} ${'内存(用/总)'.padEnd(16)} ${'GPU(用/总)'.padEnd(12)} 分区`
         console.log(chalk.bold(header))
         console.log('─'.repeat(header.length + 10))
 
-        let totalIdleGpus = 0
-
         for (const node of nodes) {
-          const gpuIdle = node.gpuTotal - node.gpuUsed
-          totalIdleGpus += gpuIdle
+          const isDown = node.state.toLowerCase().includes('down') || node.state.toLowerCase().includes('drain')
 
           const row = [
             node.nodeName.padEnd(12),
@@ -86,11 +101,11 @@ export function registerResourcesCommand(program: Command): void {
             node.partitions.join(','),
           ].join(' ')
 
-          console.log(row)
+          console.log(isDown ? chalk.dim(row) : row)
         }
 
         console.log('─'.repeat(header.length + 10))
-        console.log(`空闲 GPU 总计: ${chalk.green(String(totalIdleGpus))}`)
+        console.log(chalk.dim(`空闲 GPU 总计: ${totalIdleGpus} | 查询于 ${new Date().toLocaleTimeString('zh-CN')}`))
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error)
         console.error(chalk.red(`获取资源信息失败: ${msg}`))

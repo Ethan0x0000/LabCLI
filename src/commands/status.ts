@@ -52,9 +52,32 @@ export function registerStatusCommand(program: Command): void {
         }
 
         if (jobs.length === 0) {
-          console.log(chalk.yellow('当前没有运行中的任务'))
+          console.log(chalk.yellow(`${config.username} 当前没有活跃任务 — 用 lab-cli submit <script> 提交新任务`))
           return
         }
+
+        // Count job states
+        const stateCounts = {
+          running: 0,
+          pending: 0,
+          completed: 0,
+          failed: 0,
+        }
+        for (const job of jobs) {
+          const state = job.state.toUpperCase()
+          if (state === 'RUNNING') stateCounts.running++
+          else if (state === 'PENDING') stateCounts.pending++
+          else if (state === 'COMPLETED') stateCounts.completed++
+          else if (state === 'FAILED' || state === 'TIMEOUT') stateCounts.failed++
+        }
+
+        // Print summary header
+        const separator = '─'.repeat(50)
+        console.log(chalk.dim(separator))
+        console.log(`查询时间: ${new Date().toLocaleString('zh-CN')}`)
+        console.log(`用户: ${config.username}`)
+        console.log(`运行中: ${stateCounts.running} | 等待中: ${stateCounts.pending} | 已完成: ${stateCounts.completed} | 失败: ${stateCounts.failed}`)
+        console.log(chalk.dim(separator))
 
         const header = `${'JobID'.padEnd(10)} ${'Name'.padEnd(20)} ${'State'.padEnd(12)} ${'Partition'.padEnd(12)} ${'Nodes'.padEnd(6)} ${'GPUs'.padEnd(6)} ${'Time'}`
         console.log(chalk.bold(header))
@@ -64,6 +87,9 @@ export function registerStatusCommand(program: Command): void {
           const row = `${job.jobId.padEnd(10)} ${job.name.padEnd(20).slice(0, 20)} ${colorizeState(job.state).padEnd(12)} ${job.partition.padEnd(12)} ${String(job.nodes).padEnd(6)} ${String(job.gpus).padEnd(6)} ${job.timeUsed}`
           console.log(row)
         }
+
+        // Print footer
+        console.log(chalk.dim(`共 ${jobs.length} 个任务 | 查询于 ${new Date().toLocaleTimeString('zh-CN')}`))
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error)
         console.error(chalk.red(`获取状态失败: ${msg}`))

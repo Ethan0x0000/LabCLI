@@ -33,6 +33,7 @@ vi.mock('chalk', () => ({
     red: (value: string) => value,
     gray: (value: string) => value,
     bold: (value: string) => value,
+    dim: (value: string) => `[DIM]${value}[/DIM]`,
   },
 }))
 
@@ -118,7 +119,7 @@ describe('resources 命令', () => {
     expect(mockParseSinfoFormat).not.toHaveBeenCalled()
     expect(logSpy.mock.calls.some(([line]) => String(line).includes('CPU(用/总)'))).toBe(true)
     expect(logSpy.mock.calls.some(([line]) => String(line).includes('node01'))).toBe(true)
-    expect(logSpy).toHaveBeenCalledWith('空闲 GPU 总计: 3')
+    expect(logSpy.mock.calls.some(([line]) => String(line).includes('空闲 GPU 总计: 3'))).toBe(true)
     expect(mockDisconnect).toHaveBeenCalled()
 
     logSpy.mockRestore()
@@ -178,8 +179,105 @@ describe('resources 命令', () => {
 
     await program.parseAsync(['node', 'test', 'resources', '--partition', 'gpu'])
 
-    expect(logSpy).toHaveBeenCalledWith('没有找到匹配的节点')
+    expect(logSpy).toHaveBeenCalledWith('没有找到匹配的节点 — 用 lab-cli resources 查看所有节点，或检查 --node/--partition 参数')
     expect(mockDisconnect).toHaveBeenCalled()
+
+    logSpy.mockRestore()
+  })
+
+  it('集群概览: 显示查询时间、节点数、GPU 统计和分区信息', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const { Command } = await import('commander')
+    const { registerResourcesCommand } = await import('../resources.js')
+
+    const program = new Command()
+    registerResourcesCommand(program)
+
+    await program.parseAsync(['node', 'test', 'resources', '--partition', 'gpu'])
+
+    const calls = logSpy.mock.calls.map(([line]) => String(line))
+    expect(calls.some(line => line.includes('查询时间:'))).toBe(true)
+    expect(calls.some(line => line.includes('节点: 1 个'))).toBe(true)
+    expect(calls.some(line => line.includes('空闲 GPU: 3'))).toBe(true)
+    expect(calls.some(line => line.includes('总 GPU: 4'))).toBe(true)
+    expect(calls.some(line => line.includes('分区: gpu'))).toBe(true)
+
+    logSpy.mockRestore()
+  })
+
+  it('down 节点: 整行使用 chalk.dim 进行暗化处理', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const { Command } = await import('commander')
+    const { registerResourcesCommand } = await import('../resources.js')
+
+    mockParseSinfoJson.mockReturnValue([
+      {
+        nodeName: 'node01',
+        state: 'down',
+        cpuTotal: 64,
+        cpuUsed: 0,
+        memTotal: 262144,
+        memUsed: 0,
+        gpuTotal: 4,
+        gpuUsed: 0,
+        partitions: ['gpu'],
+      },
+      {
+        nodeName: 'node02',
+        state: 'idle',
+        cpuTotal: 64,
+        cpuUsed: 8,
+        memTotal: 262144,
+        memUsed: 65536,
+        gpuTotal: 4,
+        gpuUsed: 1,
+        partitions: ['gpu'],
+      },
+    ])
+
+    const program = new Command()
+    registerResourcesCommand(program)
+
+    await program.parseAsync(['node', 'test', 'resources'])
+
+    const calls = logSpy.mock.calls.map(([line]) => String(line))
+    const downNodeLine = calls.find(line => line.includes('node01'))
+    const idleNodeLine = calls.find(line => line.includes('node02'))
+
+    expect(downNodeLine).toContain('[DIM]')
+    expect(idleNodeLine).not.toContain('[DIM]')
+
+    logSpy.mockRestore()
+  })
+
+  it('drain 节点: 整行使用 chalk.dim 进行暗化处理', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const { Command } = await import('commander')
+    const { registerResourcesCommand } = await import('../resources.js')
+
+    mockParseSinfoJson.mockReturnValue([
+      {
+        nodeName: 'node01',
+        state: 'drain',
+        cpuTotal: 64,
+        cpuUsed: 0,
+        memTotal: 262144,
+        memUsed: 0,
+        gpuTotal: 4,
+        gpuUsed: 0,
+        partitions: ['gpu'],
+      },
+    ])
+
+    const program = new Command()
+    registerResourcesCommand(program)
+
+    await program.parseAsync(['node', 'test', 'resources'])
+
+    const calls = logSpy.mock.calls.map(([line]) => String(line))
+    const drainNodeLine = calls.find(line => line.includes('node01'))
+
+    expect(drainNodeLine).toContain('[DIM]')
 
     logSpy.mockRestore()
   })
