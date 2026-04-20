@@ -25,26 +25,26 @@ export function registerCancelCommand(program: Command): void {
         if (options.all) {
           const squeueResult = await client.exec(`squeue --json --user=${shellQuote(config.username)}`)
 
-          if (squeueResult.exitCode !== 0 && !squeueResult.stdout.trim()) {
-            throw new Error(`squeue 命令失败: ${squeueResult.stderr || '未知错误'}`)
-          }
-
           let jobCount = 0
 
-          try {
-            const jobs = parseSqueueJson(squeueResult.stdout)
-            jobCount = jobs.length
+          if (squeueResult.exitCode === 0 && squeueResult.stdout.trim()) {
+            try {
+              const jobs = parseSqueueJson(squeueResult.stdout)
+              jobCount = jobs.length
 
-            if (jobCount === 0) {
-              console.log(chalk.yellow('没有运行中的任务'))
-              return
+              if (jobCount === 0) {
+                console.log(chalk.yellow('没有运行中的任务'))
+                return
+              }
+
+              console.log(chalk.yellow(`将取消 ${jobCount} 个任务:`))
+              jobs.forEach(job => {
+                console.log(`  ${job.jobId}: ${job.name} (${job.state})`)
+              })
+            } catch {
+              console.log(chalk.yellow('将取消所有任务'))
             }
-
-            console.log(chalk.yellow(`将取消 ${jobCount} 个任务:`))
-            jobs.forEach(job => {
-              console.log(`  ${job.jobId}: ${job.name} (${job.state})`)
-            })
-          } catch {
+          } else {
             console.log(chalk.yellow('将取消所有任务'))
           }
 

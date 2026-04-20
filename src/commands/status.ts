@@ -39,19 +39,37 @@ export function registerStatusCommand(program: Command): void {
         if (!options.all) squeueCmd += ` --user=${shellQuote(config.username)}`
         if (options.jobId) squeueCmd += ` --jobs=${shellQuote(options.jobId)}`
 
+        let jobs: SlurmJobInfo[] = []
+        let jsonParsed = false
+
         const result = await client.exec(squeueCmd)
 
-        if (result.exitCode !== 0 && !result.stdout.trim()) {
-          throw new Error(`squeue 命令失败: ${result.stderr || '未知错误'}`)
+        if (result.exitCode === 0 && result.stdout.trim()) {
+          try {
+            jobs = parseSqueueJson(result.stdout)
+            jsonParsed = true
+          } catch {
+            // JSON parse failed, fall through to text format
+          }
         }
 
-        let jobs: SlurmJobInfo[] = []
+        if (!jsonParsed) {
+          let textCmd = 'squeue --format="%i %P %j %D %T %M %l" --noheader'
+          if (!options.all) textCmd += ` --user=${shellQuote(config.username)}`
+          if (options.jobId) textCmd += ` --jobs=${shellQuote(options.jobId)}`
 
-        try {
-          jobs = parseSqueueJson(result.stdout)
-        } catch {
-          jobs = parseSqueueFormat(result.stdout)
-          console.log(chalk.dim('ℹ Slurm --json 不可用，已使用文本格式解析'))
+          const fallbackResult = await client.exec(textCmd)
+
+          if (fallbackResult.exitCode !== 0 && !fallbackResult.stdout.trim()) {
+            if (fallbackResult.stderr?.includes('Invalid job id')) {
+              throw new Error(`squeue 命令失败: ${fallbackResult.stderr || '未知错误'}`)
+            }
+          }
+
+          if (fallbackResult.stdout.trim()) {
+            jobs = parseSqueueFormat(fallbackResult.stdout)
+            console.log(chalk.dim('ℹ Slurm --json 不可用，已使用文本格式解析'))
+          }
         }
 
         if (jobs.length === 0) {

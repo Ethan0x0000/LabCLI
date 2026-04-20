@@ -145,7 +145,7 @@ describe('resources 命令', () => {
     await program.parseAsync(['node', 'test', 'resources'])
 
     expect(mockExec).toHaveBeenNthCalledWith(1, 'sinfo --json')
-    expect(mockExec).toHaveBeenNthCalledWith(2, 'sinfo --format="%N %T %c %m %P" --noheader')
+    expect(mockExec).toHaveBeenNthCalledWith(2, 'sinfo --format="%N %T %c %m %G %P" --noheader')
     expect(mockParseSinfoFormat).toHaveBeenCalledWith('fallback')
     expect(logSpy.mock.calls.some(([line]) => String(line).includes('node01'))).toBe(true)
 

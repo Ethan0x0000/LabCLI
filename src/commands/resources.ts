@@ -39,18 +39,25 @@ export function registerResourcesCommand(program: Command): void {
         client = new SSHClient()
         await client.connect(await buildSSHOptions(config))
 
+        let nodes: SlurmNodeInfo[] = []
+        let jsonParsed = false
+
         const sinfoResult = await client.exec('sinfo --json')
 
-        if (sinfoResult.exitCode !== 0 && !sinfoResult.stdout.trim()) {
-          throw new Error(`sinfo 命令失败: ${sinfoResult.stderr || '未知错误'}`)
+        if (sinfoResult.exitCode === 0 && sinfoResult.stdout.trim()) {
+          try {
+            nodes = parseSinfoJson(sinfoResult.stdout)
+            jsonParsed = true
+          } catch {
+            // JSON parse failed, fall through to text format
+          }
         }
 
-        let nodes: SlurmNodeInfo[] = []
-
-        try {
-          nodes = parseSinfoJson(sinfoResult.stdout)
-        } catch {
-          const fallbackResult = await client.exec('sinfo --format="%N %T %c %m %P" --noheader')
+        if (!jsonParsed) {
+          const fallbackResult = await client.exec('sinfo --format="%N %T %c %m %G %P" --noheader')
+          if (fallbackResult.exitCode !== 0 && !fallbackResult.stdout.trim()) {
+            throw new Error(`sinfo 命令失败: ${fallbackResult.stderr || '未知错误'}`)
+          }
           nodes = parseSinfoFormat(fallbackResult.stdout)
           console.log(chalk.dim('ℹ Slurm --json 不可用，已使用文本格式解析'))
         }
