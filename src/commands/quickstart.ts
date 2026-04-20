@@ -1,6 +1,10 @@
 import type { Command } from 'commander'
 import inquirer from 'inquirer'
 import chalk from 'chalk'
+import ora from 'ora'
+import { getConfig } from '../config/loader.js'
+import { SSHClient } from '../ssh/client.js'
+import { syncToRemote } from '../transfer/rsync.js'
 import { checkGlobalConfig, checkProjectConfig } from '../utils/checks.js'
 import { initGlobal, initProject } from './init.js'
 
@@ -96,7 +100,24 @@ export function registerQuickstartCommand(program: Command): void {
         ])
 
         if (setupConfirm) {
-          console.log(chalk.blue('提示: 运行 lab-cli setup 创建远程环境'))
+          try {
+            const config = await getConfig()
+            const client = new SSHClient()
+            await client.connect({
+              host: config.host,
+              port: config.port,
+              username: config.username,
+              authMethod: config.authMethod,
+              privateKeyPath: config.privateKeyPath,
+            })
+            const spinner = ora('正在创建远程目录...').start()
+            await client.exec(`mkdir -p ${config.remotePath}`)
+            spinner.succeed(chalk.green('✓ 远程目录已创建'))
+            client.disconnect()
+          } catch (error) {
+            console.log(chalk.yellow(`远程环境创建跳过: ${error instanceof Error ? error.message : String(error)}`))
+            console.log(chalk.dim('可稍后运行 lab-cli setup'))
+          }
         } else {
           console.log(chalk.yellow('已跳过远程环境创建'))
         }
@@ -115,7 +136,23 @@ export function registerQuickstartCommand(program: Command): void {
         ])
 
         if (syncConfirm) {
-          console.log(chalk.blue('提示: 运行 lab-cli sync 同步代码'))
+          try {
+            const config = await getConfig()
+            const spinner = ora('正在同步代码...').start()
+            await syncToRemote({
+              localPath: process.cwd(),
+              remotePath: config.remotePath,
+              host: config.host,
+              username: config.username,
+              excludePatterns: config.syncExclude,
+              privateKeyPath: config.privateKeyPath,
+              port: config.port,
+            })
+            spinner.succeed(chalk.green('✓ 代码同步完成'))
+          } catch (error) {
+            console.log(chalk.yellow(`同步跳过: ${error instanceof Error ? error.message : String(error)}`))
+            console.log(chalk.dim('可稍后运行 lab-cli sync'))
+          }
         } else {
           console.log(chalk.yellow('已跳过代码同步'))
         }

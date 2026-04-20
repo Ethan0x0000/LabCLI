@@ -7,6 +7,13 @@ const mockState = vi.hoisted(() => ({
   checkProjectConfig: vi.fn(),
   initGlobal: vi.fn(),
   initProject: vi.fn(),
+  syncToRemote: vi.fn(),
+  getConfig: vi.fn(),
+  sshConnect: vi.fn(),
+  sshDisconnect: vi.fn(),
+  sshExec: vi.fn(),
+  spinnerStart: vi.fn(),
+  spinnerSucceed: vi.fn(),
 }))
 
 vi.mock('inquirer', () => ({
@@ -25,6 +32,24 @@ vi.mock('../init.js', () => ({
   initProject: mockState.initProject,
 }))
 
+vi.mock('../../transfer/rsync.js', () => ({
+  syncToRemote: mockState.syncToRemote,
+}))
+
+vi.mock('../../config/loader.js', () => ({
+  getConfig: mockState.getConfig,
+}))
+
+vi.mock('../../ssh/client.js', () => ({
+  SSHClient: vi.fn(function () {
+    return {
+      connect: mockState.sshConnect,
+      disconnect: mockState.sshDisconnect,
+      exec: mockState.sshExec,
+    }
+  }),
+}))
+
 vi.mock('chalk', () => ({
   default: {
     green: (value: string) => value,
@@ -37,7 +62,9 @@ vi.mock('chalk', () => ({
 }))
 
 vi.mock('ora', () => ({
-  default: vi.fn(),
+  default: vi.fn(() => ({
+    start: mockState.spinnerStart,
+  })),
 }))
 
 async function createProgram(): Promise<Command> {
@@ -58,6 +85,28 @@ describe('quickstart 命令', () => {
     mockState.checkGlobalConfig.mockResolvedValue({ ok: true, message: '全局配置正常' })
     mockState.checkProjectConfig.mockResolvedValue({ ok: true, message: '项目配置正常' })
     mockState.prompt.mockResolvedValue({ confirm: false })
+    mockState.getConfig.mockResolvedValue({
+      host: 'server',
+      port: 22,
+      username: 'user',
+      authMethod: 'key',
+      privateKeyPath: '/home/user/.ssh/id_rsa',
+      remotePath: '/home/user/project',
+      syncExclude: ['node_modules'],
+    })
+    mockState.sshConnect.mockResolvedValue(undefined)
+    mockState.sshDisconnect.mockReturnValue(undefined)
+    mockState.sshExec.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 })
+    mockState.syncToRemote.mockResolvedValue({
+      filesTransferred: 1,
+      bytesTransferred: 10,
+      duration: 20,
+      errors: [],
+    })
+    mockState.spinnerStart.mockReturnValue({
+      succeed: mockState.spinnerSucceed,
+    })
+    mockState.spinnerSucceed.mockReturnValue(undefined)
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
@@ -76,6 +125,37 @@ describe('quickstart 命令', () => {
     expect(mockState.checkProjectConfig).toHaveBeenCalledTimes(1)
     expect(mockState.initGlobal).not.toHaveBeenCalled()
     expect(mockState.initProject).not.toHaveBeenCalled()
+    expect(mockState.getConfig).not.toHaveBeenCalled()
+    expect(mockState.sshConnect).not.toHaveBeenCalled()
+    expect(mockState.syncToRemote).not.toHaveBeenCalled()
+  })
+
+  it('用户确认时执行远程目录创建和代码同步', async () => {
+    mockState.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirm: true })
+
+    await runQuickstart()
+
+    expect(mockState.getConfig).toHaveBeenCalledTimes(2)
+    expect(mockState.sshConnect).toHaveBeenCalledWith({
+      host: 'server',
+      port: 22,
+      username: 'user',
+      authMethod: 'key',
+      privateKeyPath: '/home/user/.ssh/id_rsa',
+    })
+    expect(mockState.sshExec).toHaveBeenCalledWith('mkdir -p /home/user/project')
+    expect(mockState.sshDisconnect).toHaveBeenCalledTimes(1)
+    expect(mockState.syncToRemote).toHaveBeenCalledWith({
+      localPath: process.cwd(),
+      remotePath: '/home/user/project',
+      host: 'server',
+      username: 'user',
+      excludePatterns: ['node_modules'],
+      privateKeyPath: '/home/user/.ssh/id_rsa',
+      port: 22,
+    })
   })
 
   it('全局配置缺失时调用 initGlobal', async () => {

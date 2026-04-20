@@ -132,7 +132,8 @@ describe('Environment Checks', () => {
 
   describe('checkSshConnection', () => {
     it('returns ok=true when SSH connection succeeds', async () => {
-      const { mockClient } = await import('../../ssh/client.js')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { mockClient } = (await import('../../ssh/client.js')) as any
       mockClient.connect.mockResolvedValue(undefined)
       mockClient.disconnect.mockClear()
 
@@ -151,7 +152,8 @@ describe('Environment Checks', () => {
     })
 
     it('returns ok=false when SSH connection fails', async () => {
-      const { mockClient } = await import('../../ssh/client.js')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { mockClient } = (await import('../../ssh/client.js')) as any
       mockClient.connect.mockRejectedValue(new Error('Connection refused'))
       mockClient.disconnect.mockClear()
 
@@ -295,7 +297,8 @@ describe('Environment Checks', () => {
       const { execSync } = await import('child_process')
       vi.mocked(execSync).mockReturnValue('rsync version 3.1.3' as any)
 
-      const { mockClient } = await import('../../ssh/client.js')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { mockClient } = (await import('../../ssh/client.js')) as any
       mockClient.connect.mockResolvedValue(undefined)
       mockClient.disconnect.mockClear()
       mockClient.exec
