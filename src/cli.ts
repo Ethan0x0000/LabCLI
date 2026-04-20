@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { Command } from 'commander'
 import { registerInitCommand } from './commands/init.js'
+import { registerDoctorCommand } from './commands/doctor.js'
 import { registerConnectCommand } from './commands/connect.js'
 import { registerSyncCommand } from './commands/sync.js'
 import { registerWatchCommand } from './commands/watch.js'
@@ -34,6 +35,7 @@ program
   .version(version)
 
 registerInitCommand(program)
+registerDoctorCommand(program)
 registerConnectCommand(program)
 registerSyncCommand(program)
 registerWatchCommand(program)
