@@ -4,6 +4,7 @@ import ora from 'ora'
 import { getConfig } from '../config/loader.js'
 import { SSHClient } from '../ssh/client.js'
 import type { SSHConnectionOptions } from '../types/index.js'
+import { buildSSHOptions } from '../utils/ssh-helpers.js'
 import {
   checkGlobalConfig,
   checkProjectConfig,
@@ -91,13 +92,7 @@ export function registerDoctorCommand(program: Command): void {
         let sshOptions: SSHConnectionOptions
         try {
           const config = await getConfig()
-          sshOptions = {
-            host: config.host,
-            port: config.port,
-            username: config.username,
-            authMethod: config.authMethod,
-            privateKeyPath: config.privateKeyPath,
-          }
+          sshOptions = await buildSSHOptions(config)
         } catch (error) {
           const detail = error instanceof Error ? error.message : String(error)
           const sshResult = skippedCheck('SSH 连接检查失败', detail)

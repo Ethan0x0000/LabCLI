@@ -19,6 +19,17 @@ export interface SyncResult {
   errors: string[]
 }
 
+function normalizeLocalPathForRsync(localPath: string): string {
+  const windowsDrivePathMatch = localPath.match(/^([a-zA-Z]):[\\/](.*)$/)
+  if (!windowsDrivePathMatch) {
+    return localPath
+  }
+
+  const driveLetter = windowsDrivePathMatch[1].toLowerCase()
+  const pathWithoutDrive = windowsDrivePathMatch[2].replace(/\\/g, '/')
+  return `/cygdrive/${driveLetter}/${pathWithoutDrive}`
+}
+
 export function buildRsyncArgs(options: SyncOptions): string[] {
   const args: string[] = ['-avz', '--delete', '--stats']
 
@@ -37,7 +48,7 @@ export function buildRsyncArgs(options: SyncOptions): string[] {
     : `ssh -p ${port} -o StrictHostKeyChecking=no`
 
   args.push('-e', sshArgs)
-  args.push(options.localPath)
+  args.push(normalizeLocalPathForRsync(options.localPath))
   args.push(`${options.username}@${options.host}:${options.remotePath}`)
 
   return args

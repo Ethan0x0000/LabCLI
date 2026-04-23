@@ -99,6 +99,18 @@ describe('rsync 参数构建', () => {
     const sshArg = args[sshArgIdx + 1]
     expect(sshArg).toContain('-p 22')
   })
+
+  it('Windows 盘符路径会转换为 rsync 本地路径格式', () => {
+    const args = buildRsyncArgs({
+      localPath: 'D:\\Users\\LL\\Desktop\\LabCLI',
+      remotePath: '/data/project',
+      host: '10.0.0.1',
+      username: 'user',
+      excludePatterns: [],
+    })
+
+    expect(args).toContain('/cygdrive/d/Users/LL/Desktop/LabCLI')
+  })
 })
 
 describe('transfer 导出', () => {
