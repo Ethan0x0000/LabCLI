@@ -1,0 +1,13 @@
+name: LabCLI
+remotePath: /share/home/gpu2003/LL/LabCLI
+syncExclude:
+  - node_modules
+  - .git
+  - __pycache__
+  - "*.pyc"
+  - .env
+  - dist
+  - coverage
+  - .sisyphus
+slurmGpus: 1
+condaPythonVersion: "3.10"
