@@ -11,6 +11,7 @@ const {
   mockCheckSlurmAvailable,
   mockCheckSlurmJsonSupport,
   mockGetConfig,
+  mockBuildSSHOptions,
   mockConnect,
   mockDisconnect,
   mockOra,
@@ -22,6 +23,7 @@ const {
   mockCheckSlurmAvailable: vi.fn(),
   mockCheckSlurmJsonSupport: vi.fn(),
   mockGetConfig: vi.fn(),
+  mockBuildSSHOptions: vi.fn(),
   mockConnect: vi.fn(),
   mockDisconnect: vi.fn(),
   mockOra: vi.fn((text: string) => ({
@@ -44,6 +46,10 @@ vi.mock('../../utils/checks.js', () => ({
 
 vi.mock('../../config/loader.js', () => ({
   getConfig: mockGetConfig,
+}))
+
+vi.mock('../../utils/ssh-helpers.js', () => ({
+  buildSSHOptions: mockBuildSSHOptions,
 }))
 
 vi.mock('../../ssh/client.js', () => ({
@@ -109,6 +115,13 @@ describe('doctor 命令', () => {
     mockCheckSlurmAvailable.mockResolvedValue(ok('Slurm 可用'))
     mockCheckSlurmJsonSupport.mockResolvedValue(ok('Slurm JSON 支持可用'))
     mockGetConfig.mockResolvedValue(baseConfig)
+    mockBuildSSHOptions.mockResolvedValue({
+      host: baseConfig.host,
+      port: baseConfig.port,
+      username: baseConfig.username,
+      authMethod: baseConfig.authMethod,
+      privateKeyPath: baseConfig.privateKeyPath,
+    })
     mockConnect.mockResolvedValue(undefined)
     mockDisconnect.mockImplementation(() => undefined)
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
@@ -129,6 +142,7 @@ describe('doctor 命令', () => {
     expect(mockCheckProjectConfig).toHaveBeenCalledTimes(1)
     expect(mockCheckRsync).toHaveBeenCalledTimes(1)
     expect(mockGetConfig).toHaveBeenCalledTimes(1)
+    expect(mockBuildSSHOptions).toHaveBeenCalledWith(baseConfig)
     expect(mockCheckSshConnection).toHaveBeenCalledWith({
       host: baseConfig.host,
       port: baseConfig.port,
